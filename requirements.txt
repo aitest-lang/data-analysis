@@ -5,7 +5,7 @@ plotly
 seaborn
 altair
 tqdm
-sklearn
+scikit-learn
 joblib
 matplotlib
 scipy
