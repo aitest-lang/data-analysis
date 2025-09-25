@@ -7,16 +7,16 @@ import plotly.express as px
 import plotly.graph_objects as go
 from datetime import datetime
 import zipfile
-# Set page configuration
-with zipfile.ZipFile('archive.zip', 'r') as zip_ref:
-    zip_ref.extractall()
 
+# Set page configuration
 st.set_page_config(
     page_title="IPL Data Analysis Dashboard",
     page_icon="🏏",
     layout="wide"
 )
 
+with zipfile.ZipFile('archive.zip', 'r') as zip_ref:
+    zip_ref.extractall()
 # Load and preprocess data
 @st.cache_data
 def load_data():
@@ -35,6 +35,10 @@ def load_data():
     df['year'] = df['date'].dt.year
     df['month'] = df['date'].dt.month
     df['day'] = df['date'].dt.day
+    
+    # Ensure season column exists - use year as season if not present
+    if 'season' not in df.columns:
+        df['season'] = df['year'].astype(str)
     
     # Create match phase feature
     def get_match_phase(over):
