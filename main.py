@@ -136,9 +136,9 @@ def main():
     # Sidebar filters
     st.sidebar.header("Filters")
     
-    # Season filter
-    seasons = sorted(df['season'].unique())
-    selected_season = st.sidebar.selectbox("Select Season", ['All'] + list(seasons))
+    # Year filter (changed from season to year)
+    years = sorted(df['year'].unique())
+    selected_year = st.sidebar.selectbox("Select Year", ['All'] + list(years))
     
     # Team filter
     teams = sorted(df['batting_team'].unique())
@@ -146,8 +146,8 @@ def main():
     
     # Apply filters
     df_filtered = df.copy()
-    if selected_season != 'All':
-        df_filtered = df_filtered[df_filtered['season'] == selected_season]
+    if selected_year != 'All':
+        df_filtered = df_filtered[df_filtered['year'] == selected_year]
     if selected_team != 'All':
         df_filtered = df_filtered[(df_filtered['batting_team'] == selected_team) | 
                                   (df_filtered['bowling_team'] == selected_team)]
