@@ -1741,6 +1741,3 @@ def update_advanced_insights(analysis_type, season):
             html.P(f"Highest impact batter: {top_batter['batter'].values[0]} (Impact: {top_batter['impact'].values[0]:.2f})"),
             html.P(f"Highest impact bowler: {top_bowler['bowler'].values[0]} (Impact: {top_bowler['impact'].values[0]:.2f})")
         ])
-
-if __name__ == '__main__':
-    app.run_server(debug=True)
