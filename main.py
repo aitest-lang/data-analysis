@@ -5,7 +5,6 @@ import plotly.express as px
 import plotly.graph_objects as go
 from datetime import datetime
 import warnings
-import zipfile
 warnings.filterwarnings('ignore')
 
 # Configure the page
@@ -18,40 +17,89 @@ st.set_page_config(
 
 @st.cache_data
 def load_data():
-    df = pd.read_csv("IPL.csv")
-    
-    # Fix team name inconsistencies
-    df['batting_team'] = df['batting_team'].replace({
-        'Royal Challengers Bangalore': 'Royal Challengers Bengaluru',
-        'Royal Challengers Bengaluru': 'Royal Challengers Bengaluru'
-    })
-    df['bowling_team'] = df['bowling_team'].replace({
-        'Royal Challengers Bangalore': 'Royal Challengers Bengaluru',
-        'Royal Challengers Bengaluru': 'Royal Challengers Bengaluru'
-    })
-    
-    # Fix other team name inconsistencies if any
-    team_mapping = {
-        'Delhi Daredevils': 'Delhi Capitals',
-        'Kings XI Punjab': 'Punjab Kings',
-        'Deccan Chargers': 'Sunrisers Hyderabad'  # Note: This is approximate
-    }
-    
-    df['batting_team'] = df['batting_team'].replace(team_mapping)
-    df['bowling_team'] = df['bowling_team'].replace(team_mapping)
-    
-    # Convert date to datetime
-    df['date'] = pd.to_datetime(df['date'])
-    
-    return df
+    try:
+        df = pd.read_csv("IPL.csv")
+        
+        # Check available columns
+        st.write("Available columns in the dataset:", list(df.columns))
+        
+        # Check if required columns exist
+        required_columns = ['season', 'match_id', 'batting_team', 'bowling_team', 'runs_total', 'batter', 'bowler']
+        missing_columns = [col for col in required_columns if col not in df.columns]
+        
+        if missing_columns:
+            st.error(f"Missing required columns: {missing_columns}")
+            st.stop()
+        
+        # Fix team name inconsistencies
+        df['batting_team'] = df['batting_team'].replace({
+            'Royal Challengers Bangalore': 'Royal Challengers Bengaluru',
+            'Royal Challengers Bengaluru': 'Royal Challengers Bengaluru'
+        })
+        df['bowling_team'] = df['bowling_team'].replace({
+            'Royal Challengers Bangalore': 'Royal Challengers Bengaluru',
+            'Royal Challengers Bengaluru': 'Royal Challengers Bengaluru'
+        })
+        
+        # Fix other team name inconsistencies if any
+        team_mapping = {
+            'Delhi Daredevils': 'Delhi Capitals',
+            'Kings XI Punjab': 'Punjab Kings',
+            'Deccan Chargers': 'Sunrisers Hyderabad'  # Note: This is approximate
+        }
+        
+        df['batting_team'] = df['batting_team'].replace(team_mapping)
+        df['bowling_team'] = df['bowling_team'].replace(team_mapping)
+        
+        # Convert date to datetime if column exists
+        if 'date' in df.columns:
+            df['date'] = pd.to_datetime(df['date'])
+        
+        # If 'season' column doesn't exist, create it from date or use a default
+        if 'season' not in df.columns:
+            if 'date' in df.columns:
+                df['season'] = df['date'].dt.year
+            else:
+                # If no date column, create a default season column
+                df['season'] = 2020  # Default value
+        
+        # Ensure all required columns exist with default values if missing
+        default_columns = {
+            'runs_total': 0,
+            'runs_batter': 0,
+            'runs_bowler': 0,
+            'balls_faced': 0,
+            'bowler_wicket': 0,
+            'valid_ball': 1,
+            'win_outcome': '',
+            'venue': 'Unknown',
+            'innings': 1,
+            'toss_winner': '',
+            'toss_decision': 'bat',
+            'balls': 0
+        }
+        
+        for col, default_val in default_columns.items():
+            if col not in df.columns:
+                df[col] = default_val
+        
+        return df
+        
+    except FileNotFoundError:
+        st.error("IPL.csv file not found. Please make sure the file exists in the correct location.")
+        st.stop()
+    except Exception as e:
+        st.error(f"Error loading data: {str(e)}")
+        st.stop()
 
 def main():
     st.title("🏏 IPL Data Analysis Dashboard")
     st.markdown("Comprehensive analysis of IPL cricket data from 2008 onwards")
-    with zipfile.ZipFile('archive.zip', 'r') as zip_ref:
-        zip_ref.extractall()
+    
     # Load data
     df = load_data()
+    
+    st.success(f"Dataset loaded successfully! Shape: {df.shape}")
     
     # Sidebar
     st.sidebar.title("Analysis Categories")
@@ -502,6 +550,6 @@ def show_toss_analysis(df):
     fig = px.bar(venue_toss_impact.head(15), x='venue', y='toss_win_rate',
                  title="Venues Where Toss Has Highest Impact (Top 15)")
     st.plotly_chart(fig, use_container_width=True)
-    
+
 if __name__ == "__main__":
     main()
