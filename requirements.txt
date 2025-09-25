@@ -11,4 +11,3 @@ matplotlib
 scipy
 dash
 dash_bootstrap_components
-analysis
