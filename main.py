@@ -126,7 +126,7 @@ with tab5:
     st.write(f"- Filtered data covers **{len(df_f['match_id'].unique())}** matches.")
     st.write(f"- **{total_runs}** total runs scored.")
     st.write(f"- Highest team total in selection: **{max_total}** runs.")
-    st.write(f)- **{max_sixes}** sixes hit.")
+    st.write(f"- **{max_sixes}** sixes hit.")
 
 # ---------- FOOTER ----------
 st.sidebar.write("---")
