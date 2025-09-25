@@ -502,6 +502,3 @@ def show_toss_analysis(df):
     fig = px.bar(venue_toss_impact.head(15), x='venue', y='toss_win_rate',
                  title="Venues Where Toss Has Highest Impact (Top 15)")
     st.plotly_chart(fig, use_container_width=True)
-
-if __name__ == "__main__":
-    main()
