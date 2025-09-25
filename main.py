@@ -7,7 +7,10 @@ import dash
 from dash import dcc, html, Input, Output, State, callback
 import dash_bootstrap_components as dbc
 from datetime import datetime
+import zipfile
 
+with zipfile.ZipFile('archive.zip', 'r') as zip_ref:
+    zip_ref.extractall()
 # Team aliases mapping
 TEAM_ALIASES = {
     "Royal Challengers Bangalore": "Royal Challengers Bengaluru",
