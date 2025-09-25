@@ -30,6 +30,9 @@ def load_and_preprocess_data():
     # Convert date to datetime
     df['date'] = pd.to_datetime(df['date'])
     
+    # Convert season to string to ensure consistent type
+    df['season'] = df['season'].astype(str)
+    
     # Extract additional date features
     df['day_of_week'] = df['date'].dt.day_name()
     df['is_weekend'] = df['date'].dt.dayofweek >= 5
