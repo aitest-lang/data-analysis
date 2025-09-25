@@ -55,10 +55,16 @@ def load_data():
     # Calculate run rate
     df['run_rate'] = df['runs_total'] / df['ball']
     
-    # Calculate cumulative team score in innings
+    # Sort data for cumulative calculations
     df = df.sort_values(['match_id', 'innings', 'over', 'ball'])
+    
+    # Calculate cumulative team score in innings
     df['cumulative_runs'] = df.groupby(['match_id', 'innings'])['runs_total'].cumsum()
-    df['cumulative_wickets'] = df.groupby(['match_id', 'innings'])['wicket_kind'].apply(lambda x: x.notna().cumsum())
+    
+    # Calculate cumulative wickets using transform to maintain index alignment
+    df['is_wicket'] = df['wicket_kind'].notna().astype(int)
+    df['cumulative_wickets'] = df.groupby(['match_id', 'innings'])['is_wicket'].cumsum()
+    df = df.drop('is_wicket', axis=1)
     
     # Create dismissal type column
     df['dismissal_type'] = df['wicket_kind'].fillna('Not Out')
