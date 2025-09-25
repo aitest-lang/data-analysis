@@ -34,13 +34,13 @@ def main():
     df = load_data()
 
     # Sidebar filters
-    seasons = sorted(df['season'].unique())
+    years = sorted(df['year'].unique())  # Use 'year' instead of 'season'
     teams = sorted(df['batting_team'].unique())
-    selected_seasons = st.sidebar.multiselect("Select Seasons", seasons, default=seasons)
+    selected_years = st.sidebar.multiselect("Select Years", years, default=years)
     selected_teams = st.sidebar.multiselect("Select Teams", teams, default=teams)
 
     # Filter data
-    filtered_df = df[df['season'].isin(selected_seasons) & 
+    filtered_df = df[df['year'].isin(selected_years) & 
                     (df['batting_team'].isin(selected_teams) | df['bowling_team'].isin(selected_teams))]
 
     # Tabs
@@ -48,8 +48,8 @@ def main():
 
     with tab1:
         st.header("Team Performance")
-        wins = filtered_df.groupby(['season', 'match_won_by']).size().reset_index(name='wins')
-        fig = px.bar(wins, x='season', y='wins', color='match_won_by', title="Wins by Team per Season")
+        wins = filtered_df.groupby(['year', 'match_won_by']).size().reset_index(name='wins')  # Use 'year'
+        fig = px.bar(wins, x='year', y='wins', color='match_won_by', title="Wins by Team per Year")
         st.plotly_chart(fig)
         team_runs = filtered_df.groupby('batting_team')['team_runs'].sum().reset_index()
         st.dataframe(team_runs.sort_values('team_runs', ascending=False))
@@ -76,7 +76,7 @@ def main():
         st.dataframe(venue_wins)
 
     with tab5:
-        st.header("Season Trends")
+        st.header("Year Trends")
         avg_runs = filtered_df.groupby('year')['team_runs'].mean().reset_index()
         fig = px.line(avg_runs, x='year', y='team_runs', title="Average Team Runs per Year")
         st.plotly_chart(fig)
