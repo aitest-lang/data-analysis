@@ -1,358 +1,507 @@
 import streamlit as st
 import pandas as pd
 import numpy as np
-import matplotlib.pyplot as plt
-import seaborn as sns
-from datetime import datetime
 import plotly.express as px
 import plotly.graph_objects as go
-from plotly.subplots import make_subplots
+from datetime import datetime
+import warnings
 import zipfile
+warnings.filterwarnings('ignore')
 
-with zipfile.ZipFile('archive.zip', 'r') as zip_ref:
-    zip_ref.extractall()
-# Set page configuration
+# Configure the page
 st.set_page_config(
-    page_title="IPL Data Analytics Dashboard",
+    page_title="IPL Data Analysis",
     page_icon="🏏",
     layout="wide",
     initial_sidebar_state="expanded"
 )
 
-# Custom CSS
-st.markdown("""
-<style>
-    .main-header {
-        font-size: 3rem;
-        color: #2E86AB;
-        text-align: center;
-        font-weight: bold;
-        margin-bottom: 2rem;
-    }
-    .sub-header {
-        font-size: 1.5rem;
-        color: #A23B72;
-        text-align: center;
-        margin-bottom: 1rem;
-    }
-    .metric-card {
-        background-color: #f0f2f6;
-        padding: 1rem;
-        border-radius: 0.5rem;
-        margin: 0.5rem 0;
-    }
-    .sidebar-title {
-        font-size: 1.2rem;
-        font-weight: bold;
-        color: #2E86AB;
-    }
-</style>
-""", unsafe_allow_html=True)
-
+@st.cache_data
 def load_data():
-    """Load the IPL data - Replace with your actual file path"""
-    # For demonstration, I'll create a sample data loading function
-    # In real scenario, replace this with: df = pd.read_csv('your_ipl_data.csv')
+    df = pd.read_csv("IPL.csv")
     
-    # Since I don't have the actual file, I'll create a sample structure
-    # You should replace this with your actual data loading code
-    try:
-        df = pd.read_csv('IPL.csv')  # Replace with your file path
-    except:
-        # Sample data creation for demonstration
-        np.random.seed(42)
-        n_rows = 1000
-        df = pd.DataFrame({
-            'match_id': np.random.randint(1, 100, n_rows),
-            'date': pd.date_range('2020-01-01', periods=n_rows, freq='D'),
-            'match_type': np.random.choice(['T20', 'ODI'], n_rows),
-            'event_name': np.random.choice(['IPL 2020', 'IPL 2021', 'IPL 2022'], n_rows),
-            'innings': np.random.choice([1, 2], n_rows),
-            'batting_team': np.random.choice(['MI', 'CSK', 'RCB', 'KKR', 'SRH', 'RR', 'DC', 'PBKS'], n_rows),
-            'bowling_team': np.random.choice(['MI', 'CSK', 'RCB', 'KKR', 'SRH', 'RR', 'DC', 'PBKS'], n_rows),
-            'over': np.random.randint(0, 20, n_rows),
-            'ball': np.random.randint(1, 7, n_rows),
-            'batter': np.random.choice(['Player1', 'Player2', 'Player3', 'Player4', 'Player5'], n_rows),
-            'runs_batter': np.random.randint(0, 7, n_rows),
-            'bowler': np.random.choice(['Bowler1', 'Bowler2', 'Bowler3', 'Bowler4'], n_rows),
-            'runs_total': np.random.randint(0, 10, n_rows),
-            'wicket_kind': np.random.choice(['caught', 'bowled', 'lbw', 'run out', 'stumped', None], n_rows),
-            'player_out': np.random.choice(['Player1', 'Player2', 'Player3', 'Player4', 'Player5', None], n_rows),
-            'venue': np.random.choice(['Wankhede', 'Chinnaswamy', 'Eden Gardens', 'MCA'], n_rows),
-            'city': np.random.choice(['Mumbai', 'Bangalore', 'Kolkata', 'Pune'], n_rows),
-            'year': np.random.randint(2020, 2023, n_rows),
-            'season': np.random.choice(['IPL 2020', 'IPL 2021', 'IPL 2022'], n_rows),
-            'team_runs': np.random.randint(100, 200, n_rows),
-            'team_wicket': np.random.randint(0, 10, n_rows),
-        })
-        # Ensure some teams don't bowl against themselves
-        df.loc[df['batting_team'] == df['bowling_team'], 'bowling_team'] = 'PBKS'
+    # Fix team name inconsistencies
+    df['batting_team'] = df['batting_team'].replace({
+        'Royal Challengers Bangalore': 'Royal Challengers Bengaluru',
+        'Royal Challengers Bengaluru': 'Royal Challengers Bengaluru'
+    })
+    df['bowling_team'] = df['bowling_team'].replace({
+        'Royal Challengers Bangalore': 'Royal Challengers Bengaluru',
+        'Royal Challengers Bengaluru': 'Royal Challengers Bengaluru'
+    })
+    
+    # Fix other team name inconsistencies if any
+    team_mapping = {
+        'Delhi Daredevils': 'Delhi Capitals',
+        'Kings XI Punjab': 'Punjab Kings',
+        'Deccan Chargers': 'Sunrisers Hyderabad'  # Note: This is approximate
+    }
+    
+    df['batting_team'] = df['batting_team'].replace(team_mapping)
+    df['bowling_team'] = df['bowling_team'].replace(team_mapping)
+    
+    # Convert date to datetime
+    df['date'] = pd.to_datetime(df['date'])
     
     return df
 
 def main():
-    st.markdown('<h1 class="main-header">🏏 IPL Data Analytics Dashboard</h1>', unsafe_allow_html=True)
-    
+    st.title("🏏 IPL Data Analysis Dashboard")
+    st.markdown("Comprehensive analysis of IPL cricket data from 2008 onwards")
+    with zipfile.ZipFile('archive.zip', 'r') as zip_ref:
+        zip_ref.extractall()
     # Load data
     df = load_data()
     
-    # Sidebar for analysis selection
-    st.sidebar.markdown('<h2 class="sidebar-title">Analysis Categories</h2>', unsafe_allow_html=True)
-    
-    analysis_category = st.sidebar.selectbox(
-        "Select Analysis Category:",
-        ["Overview", "Team Analysis", "Player Analysis", "Match Analysis", "Venue Analysis", "Toss Analysis", "Wicket Analysis"]
+    # Sidebar
+    st.sidebar.title("Analysis Categories")
+    analysis_type = st.sidebar.selectbox(
+        "Select Analysis Type",
+        [
+            "📊 Overview Dashboard",
+            "🏆 Team Performance", 
+            "👤 Player Performance",
+            "📈 Season-wise Analysis",
+            "⚔️ Head-to-Head Analysis",
+            "🏟️ Venue Analysis",
+            "🎯 Toss Analysis"
+        ]
     )
     
-    # Additional filters in sidebar
+    # Filters
     st.sidebar.markdown("---")
-    st.sidebar.markdown("**Filters:**")
+    st.sidebar.subheader("Filters")
     
-    seasons = ['All'] + sorted(df['season'].dropna().unique().tolist())
-    selected_season = st.sidebar.selectbox("Select Season:", seasons)
+    # Season filter
+    seasons = sorted(df['season'].unique())
+    selected_seasons = st.sidebar.multiselect(
+        "Select Seasons",
+        options=seasons,
+        default=seasons
+    )
     
-    if selected_season != 'All':
-        df = df[df['season'] == selected_season]
+    # Team filter
+    teams = sorted(df['batting_team'].unique())
+    selected_teams = st.sidebar.multiselect(
+        "Select Teams",
+        options=teams,
+        default=teams
+    )
     
-    teams = ['All'] + sorted(df['batting_team'].dropna().unique().tolist())
-    selected_team = st.sidebar.selectbox("Select Team:", teams)
+    # Apply filters
+    filtered_df = df[
+        (df['season'].isin(selected_seasons)) & 
+        (df['batting_team'].isin(selected_teams))
+    ]
     
-    if selected_team != 'All':
-        df = df[(df['batting_team'] == selected_team) | (df['bowling_team'] == selected_team)]
-    
-    # Main content based on selected category
-    if analysis_category == "Overview":
-        show_overview(df)
-    elif analysis_category == "Team Analysis":
-        show_team_analysis(df)
-    elif analysis_category == "Player Analysis":
-        show_player_analysis(df)
-    elif analysis_category == "Match Analysis":
-        show_match_analysis(df)
-    elif analysis_category == "Venue Analysis":
-        show_venue_analysis(df)
-    elif analysis_category == "Toss Analysis":
-        show_toss_analysis(df)
-    elif analysis_category == "Wicket Analysis":
-        show_wicket_analysis(df)
+    # Main content based on selection
+    if analysis_type == "📊 Overview Dashboard":
+        show_overview(filtered_df)
+    elif analysis_type == "🏆 Team Performance":
+        show_team_performance(filtered_df)
+    elif analysis_type == "👤 Player Performance":
+        show_player_performance(filtered_df)
+    elif analysis_type == "📈 Season-wise Analysis":
+        show_season_analysis(filtered_df)
+    elif analysis_type == "⚔️ Head-to-Head Analysis":
+        show_head_to_head(filtered_df)
+    elif analysis_type == "🏟️ Venue Analysis":
+        show_venue_analysis(filtered_df)
+    elif analysis_type == "🎯 Toss Analysis":
+        show_toss_analysis(filtered_df)
 
 def show_overview(df):
-    st.markdown('<h2 class="sub-header">📊 IPL Overview</h2>', unsafe_allow_html=True)
+    st.header("📊 IPL Overview Dashboard")
     
+    # Key metrics
     col1, col2, col3, col4 = st.columns(4)
     
     with col1:
-        st.markdown('<div class="metric-card">', unsafe_allow_html=True)
-        st.metric("Total Matches", len(df['match_id'].unique()))
-        st.markdown('</div>', unsafe_allow_html=True)
+        total_matches = df['match_id'].nunique()
+        st.metric("Total Matches", total_matches)
     
     with col2:
-        st.markdown('<div class="metric-card">', unsafe_allow_html=True)
-        st.metric("Total Teams", len(df['batting_team'].unique()))
-        st.markdown('</div>', unsafe_allow_html=True)
+        total_seasons = df['season'].nunique()
+        st.metric("Total Seasons", total_seasons)
     
     with col3:
-        st.markdown('<div class="metric-card">', unsafe_allow_html=True)
-        st.metric("Total Players", len(df['batter'].unique()))
-        st.markdown('</div>', unsafe_allow_html=True)
+        total_teams = df['batting_team'].nunique()
+        st.metric("Total Teams", total_teams)
     
     with col4:
-        st.markdown('<div class="metric-card">', unsafe_allow_html=True)
-        st.metric("Total Seasons", len(df['season'].unique()))
-        st.markdown('</div>', unsafe_allow_html=True)
+        total_players = df['batter'].nunique()
+        st.metric("Total Players", total_players)
     
-    # Match distribution over seasons
-    st.subheader("Match Distribution Over Seasons")
-    season_counts = df['season'].value_counts().reset_index()
-    season_counts.columns = ['Season', 'Matches']
-    
-    fig = px.bar(season_counts, x='Season', y='Matches', title="Matches per Season")
+    # Matches per season
+    st.subheader("Matches per Season")
+    matches_per_season = df.groupby('season')['match_id'].nunique().reset_index()
+    fig = px.bar(matches_per_season, x='season', y='match_id', 
+                 title="Number of Matches per Season")
     st.plotly_chart(fig, use_container_width=True)
     
-    # Runs distribution
-    st.subheader("Runs Distribution")
-    fig, ax = plt.subplots(figsize=(10, 6))
-    ax.hist(df['runs_total'], bins=30, edgecolor='black')
-    ax.set_xlabel('Runs')
-    ax.set_ylabel('Frequency')
-    ax.set_title('Distribution of Runs per Ball')
-    st.pyplot(fig)
+    # Teams performance overview
+    st.subheader("Team Performance Overview")
+    col1, col2 = st.columns(2)
     
-    # Top batting teams
-    st.subheader("Top Batting Teams")
-    team_runs = df.groupby('batting_team')['runs_total'].sum().sort_values(ascending=False).head(10)
-    fig = px.bar(x=team_runs.index, y=team_runs.values, title="Total Runs by Team")
-    fig.update_layout(xaxis_title="Team", yaxis_title="Total Runs")
+    with col1:
+        # Total runs by team
+        team_runs = df.groupby('batting_team')['runs_total'].sum().sort_values(ascending=False)
+        fig = px.bar(team_runs, x=team_runs.index, y=team_runs.values,
+                     title="Total Runs by Team")
+        st.plotly_chart(fig, use_container_width=True)
+    
+    with col2:
+        # Average score by team
+        avg_score = df.groupby(['match_id', 'batting_team'])['runs_total'].sum().reset_index()
+        avg_score = avg_score.groupby('batting_team')['runs_total'].mean().sort_values(ascending=False)
+        fig = px.bar(avg_score, x=avg_score.index, y=avg_score.values,
+                     title="Average Score per Match by Team")
+        st.plotly_chart(fig, use_container_width=True)
+
+def show_team_performance(df):
+    st.header("🏆 Team Performance Analysis")
+    
+    team = st.selectbox("Select Team", df['batting_team'].unique())
+    
+    # Filter data for selected team
+    team_df = df[df['batting_team'] == team]
+    
+    # Key metrics
+    col1, col2, col3, col4 = st.columns(4)
+    
+    with col1:
+        total_matches = team_df['match_id'].nunique()
+        st.metric("Matches Played", total_matches)
+    
+    with col2:
+        total_runs = team_df['runs_total'].sum()
+        st.metric("Total Runs", f"{total_runs:,}")
+    
+    with col3:
+        avg_score = team_df.groupby('match_id')['runs_total'].sum().mean()
+        st.metric("Average Score", f"{avg_score:.1f}")
+    
+    with col4:
+        wins = df[df['win_outcome'] == team]['match_id'].nunique()
+        st.metric("Matches Won", wins)
+    
+    # Performance over seasons
+    st.subheader(f"{team} Performance Over Seasons")
+    
+    # Wins per season
+    wins_per_season = df[df['win_outcome'] == team].groupby('season')['match_id'].nunique()
+    matches_per_season = team_df.groupby('season')['match_id'].nunique()
+    win_rate = (wins_per_season / matches_per_season * 100).fillna(0)
+    
+    fig = go.Figure()
+    fig.add_trace(go.Scatter(x=win_rate.index, y=win_rate.values, 
+                            mode='lines+markers', name='Win Rate %'))
+    fig.update_layout(title=f"{team} Win Rate Over Seasons")
+    st.plotly_chart(fig, use_container_width=True)
+    
+    # Batting performance by venue
+    st.subheader("Batting Performance by Venue")
+    venue_performance = team_df.groupby('venue').agg({
+        'runs_total': 'sum',
+        'match_id': 'nunique'
+    }).reset_index()
+    venue_performance['avg_score'] = venue_performance['runs_total'] / venue_performance['match_id']
+    
+    fig = px.bar(venue_performance.nlargest(10, 'avg_score'), 
+                 x='venue', y='avg_score', title="Top 10 Venues by Average Score")
     st.plotly_chart(fig, use_container_width=True)
 
-def show_team_analysis(df):
-    st.markdown('<h2 class="sub-header">🏆 Team Analysis</h2>', unsafe_allow_html=True)
+def show_player_performance(df):
+    st.header("👤 Player Performance Analysis")
+    
+    analysis_type = st.radio("Select Player Type", ["Batters", "Bowlers"])
+    
+    if analysis_type == "Batters":
+        # Batter analysis
+        batters = df['batter'].unique()
+        selected_batter = st.selectbox("Select Batter", batters)
+        
+        batter_df = df[df['batter'] == selected_batter]
+        
+        # Key metrics
+        col1, col2, col3, col4 = st.columns(4)
+        
+        with col1:
+            total_runs = batter_df['runs_batter'].sum()
+            st.metric("Total Runs", total_runs)
+        
+        with col2:
+            total_balls = batter_df['balls_faced'].sum()
+            strike_rate = (total_runs / total_balls * 100) if total_balls > 0 else 0
+            st.metric("Strike Rate", f"{strike_rate:.2f}")
+        
+        with col3:
+            total_matches = batter_df['match_id'].nunique()
+            st.metric("Matches Played", total_matches)
+        
+        with col4:
+            average = total_runs / total_matches if total_matches > 0 else 0
+            st.metric("Average", f"{average:.2f}")
+        
+        # Runs over seasons
+        runs_per_season = batter_df.groupby('season')['runs_batter'].sum()
+        fig = px.line(runs_per_season, title=f"{selected_batter} - Runs per Season")
+        st.plotly_chart(fig, use_container_width=True)
+        
+        # Performance against different teams
+        st.subheader("Performance Against Teams")
+        vs_teams = batter_df.groupby('bowling_team')['runs_batter'].sum().sort_values(ascending=False)
+        fig = px.bar(vs_teams, x=vs_teams.index, y=vs_teams.values,
+                     title="Runs Against Different Teams")
+        st.plotly_chart(fig, use_container_width=True)
+    
+    else:
+        # Bowler analysis
+        bowlers = df['bowler'].unique()
+        selected_bowler = st.selectbox("Select Bowler", bowlers)
+        
+        bowler_df = df[df['bowler'] == selected_bowler]
+        bowler_df = bowler_df[bowler_df['valid_ball'] == 1]  # Only valid deliveries
+        
+        # Key metrics
+        col1, col2, col3, col4 = st.columns(4)
+        
+        with col1:
+            total_wickets = bowler_df['bowler_wicket'].sum()
+            st.metric("Total Wickets", total_wickets)
+        
+        with col2:
+            total_runs = bowler_df['runs_bowler'].sum()
+            total_balls = bowler_df['valid_ball'].sum()
+            economy = (total_runs / total_balls * 6) if total_balls > 0 else 0
+            st.metric("Economy Rate", f"{economy:.2f}")
+        
+        with col3:
+            total_matches = bowler_df['match_id'].nunique()
+            st.metric("Matches Played", total_matches)
+        
+        with col4:
+            average = total_runs / total_wickets if total_wickets > 0 else 0
+            st.metric("Bowling Average", f"{average:.2f}")
+        
+        # Wickets over seasons
+        wickets_per_season = bowler_df.groupby('season')['bowler_wicket'].sum()
+        fig = px.line(wickets_per_season, title=f"{selected_bowler} - Wickets per Season")
+        st.plotly_chart(fig, use_container_width=True)
+
+def show_season_analysis(df):
+    st.header("📈 Season-wise Analysis")
+    
+    selected_season = st.selectbox("Select Season", sorted(df['season'].unique()))
+    
+    season_df = df[df['season'] == selected_season]
+    
+    # Top run scorers
+    st.subheader(f"Top 10 Run Scorers - {selected_season}")
+    top_batters = season_df.groupby('batter').agg({
+        'runs_batter': 'sum',
+        'match_id': 'nunique',
+        'balls_faced': 'sum'
+    }).reset_index()
+    top_batters = top_batters.nlargest(10, 'runs_batter')
+    top_batters['strike_rate'] = (top_batters['runs_batter'] / top_batters['balls_faced'] * 100).round(2)
+    
+    fig = px.bar(top_batters, x='batter', y='runs_batter',
+                 title=f"Top Run Scorers - {selected_season}")
+    st.plotly_chart(fig, use_container_width=True)
+    
+    # Top wicket takers
+    st.subheader(f"Top 10 Wicket Takers - {selected_season}")
+    valid_balls = season_df[season_df['valid_ball'] == 1]
+    top_bowlers = valid_balls.groupby('bowler').agg({
+        'bowler_wicket': 'sum',
+        'runs_bowler': 'sum',
+        'valid_ball': 'sum'
+    }).reset_index()
+    top_bowlers = top_bowlers.nlargest(10, 'bowler_wicket')
+    top_bowlers['economy'] = (top_bowlers['runs_bowler'] / top_bowlers['valid_ball'] * 6).round(2)
+    
+    fig = px.bar(top_bowlers, x='bowler', y='bowler_wicket',
+                 title=f"Top Wicket Takers - {selected_season}")
+    st.plotly_chart(fig, use_container_width=True)
+    
+    # Team standings
+    st.subheader(f"Team Standings - {selected_season}")
+    team_wins = season_df[season_df['win_outcome'].notna()].groupby('win_outcome')['match_id'].nunique()
+    team_matches = season_df.groupby('batting_team')['match_id'].nunique()
+    
+    standings = pd.DataFrame({
+        'team': team_matches.index,
+        'matches': team_matches.values,
+        'wins': team_wins.reindex(team_matches.index, fill_value=0).values
+    })
+    standings['win_percentage'] = (standings['wins'] / standings['matches'] * 100).round(2)
+    standings = standings.sort_values('win_percentage', ascending=False)
+    
+    fig = px.bar(standings, x='team', y='win_percentage',
+                 title=f"Team Win Percentage - {selected_season}")
+    st.plotly_chart(fig, use_container_width=True)
+
+def show_head_to_head(df):
+    st.header("⚔️ Head-to-Head Analysis")
     
     col1, col2 = st.columns(2)
     
     with col1:
-        # Team performance by runs
-        team_runs = df.groupby('batting_team')['runs_total'].sum().sort_values(ascending=False)
-        fig = px.bar(x=team_runs.index, y=team_runs.values, title="Total Runs by Team")
-        fig.update_layout(xaxis_title="Team", yaxis_title="Total Runs")
-        st.plotly_chart(fig, use_container_width=True)
+        team1 = st.selectbox("Select Team 1", df['batting_team'].unique())
     
     with col2:
-        # Team performance by wickets
-        team_wickets = df[df['wicket_kind'].notna()].groupby('bowling_team').size().sort_values(ascending=False)
-        fig = px.bar(x=team_wickets.index, y=team_wickets.values, title="Wickets Taken by Team")
-        fig.update_layout(xaxis_title="Team", yaxis_title="Wickets")
-        st.plotly_chart(fig, use_container_width=True)
+        team2 = st.selectbox("Select Team 2", 
+                            [team for team in df['batting_team'].unique() if team != team1])
     
-    # Team vs Team comparison
-    st.subheader("Team vs Team Performance")
-    teams = df['batting_team'].unique()
-    team1 = st.selectbox("Select Team 1:", teams, key='team1')
-    team2 = st.selectbox("Select Team 2:", [t for t in teams if t != team1], key='team2')
+    # Get matches between these teams
+    matches_team1_batting = df[(df['batting_team'] == team1) & (df['bowling_team'] == team2)]
+    matches_team2_batting = df[(df['batting_team'] == team2) & (df['bowling_team'] == team1)]
     
-    team1_runs = df[df['batting_team'] == team1]['runs_total'].sum()
-    team2_runs = df[df['batting_team'] == team2]['runs_total'].sum()
+    all_matches = pd.concat([matches_team1_batting, matches_team2_batting])
+    unique_matches = all_matches['match_id'].unique()
     
-    comparison_df = pd.DataFrame({
+    # Win statistics
+    matches_df = df[df['match_id'].isin(unique_matches)]
+    team1_wins = matches_df[matches_df['win_outcome'] == team1]['match_id'].nunique()
+    team2_wins = matches_df[matches_df['win_outcome'] == team2]['match_id'].nunique()
+    total_matches = len(unique_matches)
+    
+    # Display head-to-head stats
+    col1, col2, col3 = st.columns(3)
+    
+    with col1:
+        st.metric(f"{team1} Wins", team1_wins)
+    
+    with col2:
+        st.metric(f"{team2} Wins", team2_wins)
+    
+    with col3:
+        st.metric("Total Matches", total_matches)
+    
+    # Win comparison chart
+    wins_data = pd.DataFrame({
         'Team': [team1, team2],
-        'Total Runs': [team1_runs, team2_runs]
+        'Wins': [team1_wins, team2_wins]
     })
     
-    fig = px.bar(comparison_df, x='Team', y='Total Runs', title=f"{team1} vs {team2} - Total Runs")
-    st.plotly_chart(fig, use_container_width=True)
-
-def show_player_analysis(df):
-    st.markdown('<h2 class="sub-header">👨‍🦱 Player Analysis</h2>', unsafe_allow_html=True)
-    
-    # Top run scorers
-    st.subheader("Top Run Scorers")
-    player_runs = df.groupby('batter')['runs_batter'].sum().sort_values(ascending=False).head(10)
-    fig = px.bar(x=player_runs.index, y=player_runs.values, title="Top 10 Run Scorers")
-    fig.update_layout(xaxis_title="Player", yaxis_title="Total Runs")
+    fig = px.pie(wins_data, values='Wins', names='Team', 
+                 title=f"Head-to-Head Win Distribution")
     st.plotly_chart(fig, use_container_width=True)
     
-    # Top wicket takers
-    st.subheader("Top Wicket Takers")
-    wicket_data = df[df['wicket_kind'].notna()]
-    if not wicket_data.empty:
-        bowler_wickets = wicket_data.groupby('bowler').size().sort_values(ascending=False).head(10)
-        fig = px.bar(x=bowler_wickets.index, y=bowler_wickets.values, title="Top 10 Wicket Takers")
-        fig.update_layout(xaxis_title="Bowler", yaxis_title="Wickets")
-        st.plotly_chart(fig, use_container_width=True)
+    # Average scores in matches between these teams
+    team1_avg = matches_team1_batting.groupby('match_id')['runs_total'].sum().mean()
+    team2_avg = matches_team2_batting.groupby('match_id')['runs_total'].sum().mean()
     
-    # Player performance by team
-    st.subheader("Player Performance by Team")
-    selected_player = st.selectbox("Select Player:", df['batter'].unique())
-    player_data = df[df['batter'] == selected_player]
-    player_team_runs = player_data.groupby('batting_team')['runs_batter'].sum().sort_values(ascending=False)
+    avg_scores = pd.DataFrame({
+        'Team': [team1, team2],
+        'Average Score': [team1_avg, team2_avg]
+    })
     
-    fig = px.bar(x=player_team_runs.index, y=player_team_runs.values, 
-                 title=f"{selected_player} - Runs by Team")
-    fig.update_layout(xaxis_title="Team", yaxis_title="Runs")
-    st.plotly_chart(fig, use_container_width=True)
-
-def show_match_analysis(df):
-    st.markdown('<h2 class="sub-header">🏟️ Match Analysis</h2>', unsafe_allow_html=True)
-    
-    # Match results
-    st.subheader("Match Results Distribution")
-    if 'match_won_by' in df.columns:
-        match_results = df['match_won_by'].value_counts()
-        fig = px.pie(values=match_results.values, names=match_results.index, 
-                     title="Match Results Distribution")
-        st.plotly_chart(fig, use_container_width=True)
-    
-    # Runs per match
-    st.subheader("Average Runs per Match")
-    match_runs = df.groupby('match_id')['runs_total'].sum()
-    avg_runs = match_runs.mean()
-    st.metric("Average Runs per Match", f"{avg_runs:.2f}")
-    
-    # Runs progression in matches
-    st.subheader("Runs Progression in Selected Match")
-    selected_match = st.selectbox("Select Match ID:", df['match_id'].unique())
-    match_data = df[df['match_id'] == selected_match].sort_values('ball_no')
-    
-    fig = px.line(match_data, x='ball_no', y='runs_total', 
-                  title=f"Runs Progression in Match {selected_match}")
-    fig.update_layout(xaxis_title="Ball Number", yaxis_title="Runs")
+    fig = px.bar(avg_scores, x='Team', y='Average Score',
+                 title="Average Scores in Head-to-Head Matches")
     st.plotly_chart(fig, use_container_width=True)
 
 def show_venue_analysis(df):
-    st.markdown('<h2 class="sub-header">🏟️ Venue Analysis</h2>', unsafe_allow_html=True)
+    st.header("🏟️ Venue Analysis")
     
-    # Venue performance
-    st.subheader("Top Venues by Total Runs")
-    venue_runs = df.groupby('venue')['runs_total'].sum().sort_values(ascending=False).head(10)
-    fig = px.bar(x=venue_runs.index, y=venue_runs.values, title="Top 10 Venues by Total Runs")
-    fig.update_layout(xaxis_title="Venue", yaxis_title="Total Runs")
+    venue = st.selectbox("Select Venue", df['venue'].unique())
+    
+    venue_df = df[df['venue'] == venue]
+    
+    # Basic venue stats
+    col1, col2, col3, col4 = st.columns(4)
+    
+    with col1:
+        total_matches = venue_df['match_id'].nunique()
+        st.metric("Total Matches", total_matches)
+    
+    with col2:
+        avg_runs = venue_df.groupby('match_id')['runs_total'].sum().mean()
+        st.metric("Average Total Runs", f"{avg_runs:.1f}")
+    
+    with col3:
+        avg_first_innings = venue_df[venue_df['innings'] == 1].groupby('match_id')['runs_total'].sum().mean()
+        st.metric("Average 1st Innings Score", f"{avg_first_innings:.1f}")
+    
+    with col4:
+        wins_batting_first = venue_df[venue_df['innings'] == 1]['match_id'].nunique()
+        win_percentage = (venue_df[venue_df['win_outcome'] == venue_df['batting_team']]['match_id'].nunique() / total_matches * 100) if total_matches > 0 else 0
+        st.metric("Batting First Win %", f"{win_percentage:.1f}%")
+    
+    # Team performance at venue
+    st.subheader("Team Performance at this Venue")
+    team_performance = venue_df.groupby('batting_team').agg({
+        'runs_total': 'sum',
+        'match_id': 'nunique'
+    }).reset_index()
+    team_performance['avg_score'] = team_performance['runs_total'] / team_performance['match_id']
+    team_performance = team_performance.sort_values('avg_score', ascending=False)
+    
+    fig = px.bar(team_performance.head(10), x='batting_team', y='avg_score',
+                 title="Top 10 Teams by Average Score at this Venue")
     st.plotly_chart(fig, use_container_width=True)
     
-    # City analysis
-    st.subheader("Top Cities by Total Runs")
-    city_runs = df.groupby('city')['runs_total'].sum().sort_values(ascending=False).head(10)
-    fig = px.bar(x=city_runs.index, y=city_runs.values, title="Top 10 Cities by Total Runs")
-    fig.update_layout(xaxis_title="City", yaxis_title="Total Runs")
+    # Highest totals at venue
+    st.subheader("Highest Totals at this Venue")
+    high_totals = venue_df.groupby(['match_id', 'batting_team'])['runs_total'].sum().reset_index()
+    high_totals = high_totals.nlargest(10, 'runs_total')
+    
+    fig = px.bar(high_totals, x='batting_team', y='runs_total',
+                 title="Highest Team Totals at this Venue")
     st.plotly_chart(fig, use_container_width=True)
 
 def show_toss_analysis(df):
-    st.markdown('<h2 class="sub-header">🎯 Toss Analysis</h2>', unsafe_allow_html=True)
+    st.header("🎯 Toss Analysis")
     
-    if 'toss_winner' in df.columns and 'toss_decision' in df.columns:
-        col1, col2 = st.columns(2)
-        
-        with col1:
-            # Toss winner distribution
-            toss_winners = df['toss_winner'].value_counts()
-            fig = px.pie(values=toss_winners.values, names=toss_winners.index, 
-                         title="Toss Winners Distribution")
-            st.plotly_chart(fig, use_container_width=True)
-        
-        with col2:
-            # Toss decision distribution
-            toss_decisions = df['toss_decision'].value_counts()
-            fig = px.pie(values=toss_decisions.values, names=toss_decisions.index, 
-                         title="Toss Decision Distribution")
-            st.plotly_chart(fig, use_container_width=True)
-        
-        # Toss winner vs match winner
-        st.subheader("Toss Winner vs Match Winner")
-        if 'match_won_by' in df.columns:
-            toss_match_df = df.groupby(['toss_winner', 'match_won_by']).size().reset_index(name='count')
-            fig = px.scatter(toss_match_df, x='toss_winner', y='match_won_by', size='count',
-                             title="Toss Winner vs Match Winner")
-            st.plotly_chart(fig, use_container_width=True)
-
-def show_wicket_analysis(df):
-    st.markdown('<h2 class="sub-header">⚾ Wicket Analysis</h2>', unsafe_allow_html=True)
+    # Toss impact on match results
+    matches_with_toss = df.drop_duplicates('match_id')[['match_id', 'toss_winner', 'toss_decision', 'win_outcome']]
+    matches_with_toss = matches_with_toss.dropna()
     
-    wicket_data = df[df['wicket_kind'].notna()]
+    matches_with_toss['toss_winner_won'] = matches_with_toss['toss_winner'] == matches_with_toss['win_outcome']
     
-    if not wicket_data.empty:
-        col1, col2 = st.columns(2)
-        
-        with col1:
-            # Wicket types distribution
-            wicket_types = wicket_data['wicket_kind'].value_counts()
-            fig = px.pie(values=wicket_types.values, names=wicket_types.index, 
-                         title="Wicket Types Distribution")
-            st.plotly_chart(fig, use_container_width=True)
-        
-        with col2:
-            # Wickets per match
-            wickets_per_match = wicket_data.groupby('match_id').size()
-            fig = px.histogram(x=wickets_per_match, nbins=10, 
-                               title="Distribution of Wickets per Match")
-            fig.update_layout(xaxis_title="Wickets per Match", yaxis_title="Frequency")
-            st.plotly_chart(fig, use_container_width=True)
-        
-        # Wickets by bowler
-        st.subheader("Top Wicket Takers")
-        bowler_wickets = wicket_data.groupby('bowler').size().sort_values(ascending=False).head(10)
-        fig = px.bar(x=bowler_wickets.index, y=bowler_wickets.values, 
-                     title="Top 10 Wicket Takers")
-        fig.update_layout(xaxis_title="Bowler", yaxis_title="Wickets")
-        st.plotly_chart(fig, use_container_width=True)
+    toss_win_rate = matches_with_toss['toss_winner_won'].mean() * 100
+    
+    col1, col2, col3 = st.columns(3)
+    
+    with col1:
+        st.metric("Toss Winner Win Rate", f"{toss_win_rate:.2f}%")
+    
+    with col2:
+        total_matches = len(matches_with_toss)
+        st.metric("Matches Analyzed", total_matches)
+    
+    with col3:
+        bat_first_wins = matches_with_toss[
+            (matches_with_toss['toss_decision'] == 'bat') & 
+            (matches_with_toss['toss_winner_won'] == True)
+        ].shape[0]
+        bat_first_matches = matches_with_toss[matches_with_toss['toss_decision'] == 'bat'].shape[0]
+        bat_first_win_rate = (bat_first_wins / bat_first_matches * 100) if bat_first_matches > 0 else 0
+        st.metric("Bat First Win Rate", f"{bat_first_win_rate:.2f}%")
+    
+    # Toss decision preference by team
+    st.subheader("Toss Decision Preference by Teams")
+    toss_preference = matches_with_toss.groupby(['toss_winner', 'toss_decision']).size().unstack(fill_value=0)
+    toss_preference['total'] = toss_preference.sum(axis=1)
+    toss_preference['bat_percentage'] = (toss_preference.get('bat', 0) / toss_preference['total'] * 100).round(2)
+    toss_preference = toss_preference.sort_values('bat_percentage', ascending=False)
+    
+    fig = px.bar(toss_preference.head(15), x=toss_preference.index[:15], y='bat_percentage',
+                 title="Teams that Prefer to Bat First After Winning Toss (Top 15)")
+    st.plotly_chart(fig, use_container_width=True)
+    
+    # Toss impact by venue
+    st.subheader("Toss Impact by Venue")
+    venue_toss_impact = df.drop_duplicates('match_id').groupby('venue').agg({
+        'toss_winner': lambda x: (x == df[df['match_id'].isin(x.index)]['win_outcome'].values).mean() * 100
+    }).reset_index()
+    venue_toss_impact.columns = ['venue', 'toss_win_rate']
+    venue_toss_impact = venue_toss_impact.sort_values('toss_win_rate', ascending=False)
+    
+    fig = px.bar(venue_toss_impact.head(15), x='venue', y='toss_win_rate',
+                 title="Venues Where Toss Has Highest Impact (Top 15)")
+    st.plotly_chart(fig, use_container_width=True)
 
 if __name__ == "__main__":
     main()
