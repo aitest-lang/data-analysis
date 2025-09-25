@@ -5,3 +5,6 @@ plotly
 seaborn
 altair
 tqdm
+sklearn
+joblib
+matplotlib
